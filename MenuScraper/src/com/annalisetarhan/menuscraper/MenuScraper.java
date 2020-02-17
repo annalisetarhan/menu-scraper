@@ -3,6 +3,7 @@ package com.annalisetarhan.menuscraper;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.safety.Whitelist;
 import org.jsoup.select.Elements;
 
 import java.io.FileOutputStream;
@@ -28,7 +29,7 @@ public class MenuScraper {
     private static String nativeFoodsPage = "https://www.nativefoods.com/our-menu";
     private static String veggieGrillPage = "https://www.veggiegrill.com/menu.html";
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         System.out.println("Creating this month's directory...\n");
 
         // Creates a directory based on current date, e.g. June2019
@@ -41,7 +42,10 @@ public class MenuScraper {
         String fileString = "/Users/annalisebaumann/Desktop/ScrapedMenus/" + dateString;
 
         try {
-            File f = new File(fileString);
+            File directory = new File(fileString);
+            if (!directory.exists()) {
+                directory.mkdir();
+            }
         } catch (Exception e) {
             System.out.println("This month's directory was not created. Try again next month.");
             e.printStackTrace();
@@ -86,7 +90,7 @@ public class MenuScraper {
 
         try {
             BufferedWriter writer = new BufferedWriter(new FileWriter(fileString + "//" + fileName));
-            writer.write(doc.toString());
+            writer.write(doc.body().toString());
         } catch (IOException e) {
             System.out.println("Millennium's raw menu data could not be written.");
             e.printStackTrace();
@@ -173,15 +177,34 @@ public class MenuScraper {
         try {
             BufferedWriter writer = new BufferedWriter(new FileWriter(fileString + "//" + fileName));
 
-            // Menu is spread across multiple pages with urls differing only by final numerical id.
-            // IDs stored in "graciasMadreIDs" array. Compiles all menus into a single txt file.
+            /*
+                Menu is spread across multiple pages with urls differing only by final numerical id.
+                IDs stored in "graciasMadreIDs" array. Compiles all pages to a single text file.
+                This is more robust than the strategy I used for cleanMillennium(), since I use Jsoup.clean()
+                instead of looking for specific data.
+             */
 
             for (int i : graciasMadreIDs) {
                 String graciasMadreURL = graciasMadreMenu + i;
                 Document doc = Jsoup.connect(graciasMadreURL).get();
-                writer.write(doc.toString());
-                writer.newLine();
+                Document.OutputSettings settings = new Document.OutputSettings().prettyPrint(false);
+                doc.outputSettings(settings);
+
+                String docBody = doc.body().toString();
+                int startIndex = docBody.indexOf("<h2 style=");
+                int endIndex = docBody.length();
+
+                if (docBody.contains("\t<div id=\"top_button\">\n")) {
+                    endIndex = docBody.indexOf("\t<div id=\"top_button\">\n");
+                }
+
+                docBody = docBody.substring(startIndex, endIndex);
+
+                String menuText = Jsoup.clean(docBody, graciasMadreURL, Whitelist.none(), settings);
+                writer.write(menuText);
             }
+            writer.close();
+
         } catch (IOException e) {
             System.out.println("Something went wrong with Gracias Madre's menu.");
             e.printStackTrace();
