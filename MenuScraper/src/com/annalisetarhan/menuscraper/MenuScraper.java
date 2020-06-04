@@ -6,6 +6,9 @@ import org.jsoup.nodes.Element;
 import org.jsoup.safety.Whitelist;
 import org.jsoup.select.Elements;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -20,7 +23,6 @@ import java.util.ArrayList;
 import java.time.LocalDate;
 
 
-
 public class MenuScraper {
     private static String millenniumMenu = "https://www.millenniumrestaurant.com/menu";
     private static String kindredHome = "https://barkindred.com";
@@ -28,18 +30,19 @@ public class MenuScraper {
     private static int[] graciasMadreIDs = {9, 14, 18, 19, 34};
     private static String nativeFoodsPage = "https://www.nativefoods.com/our-menu";
     private static String veggieGrillPage = "https://www.veggiegrill.com/menu.html";
+    private static String biNeviDeliPage = "https://binevideli.com/en/menus/";
 
     public static void main(String[] args) throws IOException {
         System.out.println("Creating this month's directory...\n");
 
         // Creates a directory based on current date, e.g. June2019
-        // If directory couldn't be created, ends program early
+        // If directory can't be created, ends program early
 
         LocalDate date = LocalDate.now();
         String month = date.getMonth().toString().toLowerCase();
         month = Character.toUpperCase(month.charAt(0)) + month.substring(1);
         String dateString = month + "" + date.getYear();
-        String fileString = "/Users/annalisebaumann/Desktop/ScrapedMenus/" + dateString;
+        String fileString = "/Users/annalisetarhan/Desktop/ScrapedMenus/" + dateString;
 
         try {
             File directory = new File(fileString);
@@ -53,7 +56,6 @@ public class MenuScraper {
         }
 
         // Saves each restaurant's menu in the new directory
-
         System.out.println("Fetching Millennium's menu...");
         saveMillenniumMenu(fileString);
 
@@ -68,6 +70,9 @@ public class MenuScraper {
 
         System.out.println("Fetching Veggie Grill's menu...");
         saveVeggieGrillMenu(fileString);
+
+        System.out.println("Fetching Bi Nevi Deli's menu...");
+        saveBiNeviDeliMenu(fileString);
 
         System.out.println("\nThank you, come again!");
     }
@@ -100,10 +105,10 @@ public class MenuScraper {
     }
 
     /*
-     * Extracts basic information from Millennium menu and saves as txt file
+     * Extracts basic information from Millennium menu and saves as a txt file
      */
 
-    private static void cleanMillennium (Document doc, String fileString) {
+    private static void cleanMillennium(Document doc, String fileString) {
         String fileName = fileString + "//" + "MillenniumClean.txt";
 
         try {
@@ -129,13 +134,14 @@ public class MenuScraper {
 
             Elements allElements = doc.getAllElements();
 
-            boolean sectionIsRelevant = true;
             ArrayList<String> relevantSections = new ArrayList<>();
             relevantSections.add("Starters");
             relevantSections.add("Mains");
             relevantSections.add("Cocktails");
             relevantSections.add("DESSERTS");
             relevantSections.add("Sundays from 10:30am-2:00pm");
+
+            boolean sectionIsRelevant = true;
 
             for (Element e : allElements) {
                 if (e.className().equals("menu-section-title")) {
@@ -178,11 +184,11 @@ public class MenuScraper {
             BufferedWriter writer = new BufferedWriter(new FileWriter(fileString + "//" + fileName));
 
             /*
-                Menu is spread across multiple pages with urls differing only by final numerical id.
-                IDs stored in "graciasMadreIDs" array. Compiles all pages to a single text file.
-                This is more robust than the strategy I used for cleanMillennium(), since I use Jsoup.clean()
-                instead of looking for specific data.
-             */
+	      Menu is spread across multiple pages with urls differing only by final numerical id.
+	      IDs stored in "graciasMadreIDs" array. Compiles all pages to a single text file.
+	      This is more robust than the strategy I used for cleanMillennium(), since I use Jsoup.clean()
+	      instead of looking for specific data.
+	    */
 
             for (int i : graciasMadreIDs) {
                 String graciasMadreURL = graciasMadreMenu + i;
@@ -239,7 +245,7 @@ public class MenuScraper {
     }
 
     /*
-     * Accesses Native Foods' menu and saves as pdf
+     * Accesses Native Foods' menu and saves as a pdf
      */
 
     private static void saveNativeFoodsMenu(String fileString) {
@@ -275,7 +281,7 @@ public class MenuScraper {
      * Accesses Veggie Grill's menu and saves as a pdf
      */
 
-    private static void saveVeggieGrillMenu(String fileString){
+    private static void saveVeggieGrillMenu(String fileString) {
         String fileName = "VeggieGrill.pdf";
         URL veggieGrillMenuURL = null;
 
@@ -296,6 +302,68 @@ public class MenuScraper {
             e.printStackTrace();
         }
         pdfMenuHelper(veggieGrillMenuURL, fileString, fileName);
+    }
+
+    /*
+     * Accesses Bi Nevi Deli's menu and concatenates jpgs
+     */
+
+    private static void saveBiNeviDeliMenu(String fileString) {
+        String fileName = "BiNeviDeli.jpg";
+        try {
+            Document doc = Jsoup.connect(biNeviDeliPage).get();
+            Elements menuImages = doc.select(".wpb_single_image img");
+
+            // Gets each menu jpg's info
+
+            String[] imageLinks = new String[6];
+            URL[] imageUrls = new URL[6];
+            BufferedImage[] images = new BufferedImage[6];
+            int[] heights = new int[6];
+            int[] widths = new int[6];
+
+            for (int i = 0; i < 6; i++) {
+                imageLinks[i] = menuImages.get(i).attr("src");
+                imageUrls[i] = new URL(imageLinks[i]);
+                images[i] = ImageIO.read(imageUrls[i]);
+                heights[i] = images[i].getHeight() + 50; // +50 adds a buffer between each menu
+                widths[i] = images[i].getWidth();
+            }
+
+            // Calculates dimensions of final image
+
+            int totalHeight = 0;
+            int maxWidth = 0;
+            for (int i = 0; i < 6; i++) {
+                totalHeight += heights[i];
+                if (widths[i] > maxWidth) {
+                    maxWidth = widths[i];
+                }
+            }
+
+            // Creates new image and sets background color to white
+
+            BufferedImage concatenatedMenu =
+                    new BufferedImage(maxWidth, totalHeight, BufferedImage.TYPE_INT_RGB);
+            Graphics2D graphics = concatenatedMenu.createGraphics();
+            graphics.setColor(Color.WHITE);
+            graphics.fillRect(0, 0, maxWidth, totalHeight);
+
+            // Draws each part of the menu to the final image
+
+            int heightDrawnSoFar = 0;
+            for (int i = 0; i < 6; i++) {
+                boolean imageDrawn = graphics.drawImage(images[i], 0, heightDrawnSoFar, null);
+                heightDrawnSoFar += heights[i];
+                assert (imageDrawn);
+            }
+            File finalMenu = new File(fileString + "//" + fileName);
+            boolean finalMenuDrawing = ImageIO.write(concatenatedMenu, "jpeg", finalMenu);
+            assert (finalMenuDrawing);
+        } catch (Exception e) {
+            System.out.println("Couldn't handle Bi Nevi's menu. Lame.");
+            e.printStackTrace();
+        }
     }
 
     /*
