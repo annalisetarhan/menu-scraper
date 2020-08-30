@@ -18,21 +18,20 @@ import java.io.FileWriter;
 import java.io.File;
 
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.time.LocalDate;
 
-
 public class MenuScraper {
     private static String millenniumMenu = "https://www.millenniumrestaurant.com/menu";
-    private static String kindredHome = "https://barkindred.com";
     private static String graciasMadreMenu = "https://www.up2datemenu.com/plain_menu?menu_id=";
     private static int[] graciasMadreIDs = {9, 14, 18, 19, 34};
     private static String nativeFoodsPage = "https://www.nativefoods.com/our-menu";
-    private static String veggieGrillPage = "https://www.veggiegrill.com/menu.html";
+    private static String veggieGrillPage = "https://www.veggiegrill.com/assets/392/src/MenuPDF.pdf";
     private static String biNeviDeliPage = "https://binevideli.com/en/menus/";
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         System.out.println("Creating this month's directory...\n");
 
         // Creates a directory based on current date, e.g. June2019
@@ -99,6 +98,7 @@ public class MenuScraper {
         } catch (IOException e) {
             System.out.println("Millennium's raw menu data could not be written.");
             e.printStackTrace();
+            return;
         }
 
         cleanMillennium(doc, fileString);
@@ -184,11 +184,11 @@ public class MenuScraper {
             BufferedWriter writer = new BufferedWriter(new FileWriter(fileString + "//" + fileName));
 
             /*
-	      Menu is spread across multiple pages with urls differing only by final numerical id.
-	      IDs stored in "graciasMadreIDs" array. Compiles all pages to a single text file.
-	      This is more robust than the strategy I used for cleanMillennium(), since I use Jsoup.clean()
-	      instead of looking for specific data.
-	    */
+            Menu is spread across multiple pages with urls differing only by final numerical id.
+	        IDs stored in "graciasMadreIDs" array. Compiles all pages to a single text file.
+	        This is more robust than the strategy I used for cleanMillennium(), since I use Jsoup.clean()
+	        instead of looking for specific data.
+	        */
 
             for (int i : graciasMadreIDs) {
                 String graciasMadreURL = graciasMadreMenu + i;
@@ -226,6 +226,7 @@ public class MenuScraper {
         URL kindredMenuURL = null;
 
         try {
+            String kindredHome = "https://barkindred.com";
             Document doc = Jsoup.connect(kindredHome).get();
             Elements links = doc.select("a[href]");
 
@@ -234,13 +235,17 @@ public class MenuScraper {
             for (Element link : links) {
                 if (link.text().equals("Menu")) {
                     kindredMenuURL = new URL(link.attr("abs:href"));
+                    break;
                 }
             }
 
         } catch (IOException e) {
             System.out.println("Oh no! Kindred's menu wasn't where it was supposed to be");
             e.printStackTrace();
+            return;
         }
+
+        assert kindredMenuURL != null;
         pdfMenuHelper(kindredMenuURL, fileString, fileName);
     }
 
@@ -273,7 +278,9 @@ public class MenuScraper {
         } catch (IOException e) {
             System.out.println("Oops. Couldn't find Native Foods' menu.");
             e.printStackTrace();
+            return;
         }
+        assert nativeFoodsMenuURL != null;
         pdfMenuHelper(nativeFoodsMenuURL, fileString, fileName);
     }
 
@@ -283,24 +290,16 @@ public class MenuScraper {
 
     private static void saveVeggieGrillMenu(String fileString) {
         String fileName = "VeggieGrill.pdf";
-        URL veggieGrillMenuURL = null;
+        URL veggieGrillMenuURL;
 
         try {
-            Document doc = Jsoup.connect(veggieGrillPage).get();
-            Elements links = doc.select("a[href]");
-
-            // Depends on menu link with exact text: "Download Menu PDF"
-
-            for (Element link : links) {
-                if (link.text().equals("Download Menu PDF")) {
-                    veggieGrillMenuURL = new URL(link.attr("abs:href"));
-                    break;
-                }
-            }
-        } catch (IOException e) {
-            System.out.println("Veggie Grill's menu wasn't there :(");
+            veggieGrillMenuURL = new URL(veggieGrillPage);
+        } catch (MalformedURLException e) {
+            System.out.println("Problem with Veggie Grill's URL");
             e.printStackTrace();
+            return;
         }
+
         pdfMenuHelper(veggieGrillMenuURL, fileString, fileName);
     }
 
