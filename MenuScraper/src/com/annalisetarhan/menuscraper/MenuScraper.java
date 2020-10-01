@@ -226,23 +226,9 @@ public class MenuScraper {
         URL kindredMenuURL = null;
 
         try {
-            String kindredHome = "https://barkindred.com";
-            Document doc = Jsoup.connect(kindredHome).get();
-            Elements links = doc.select("a[href]");
-
-            // Depends on menu link having key "Menu"
-
-            for (Element link : links) {
-                if (link.text().equals("Menu")) {
-                    kindredMenuURL = new URL(link.attr("abs:href"));
-                    break;
-                }
-            }
-
-        } catch (IOException e) {
-            System.out.println("Oh no! Kindred's menu wasn't where it was supposed to be");
+            kindredMenuURL = new URL("https://cdn.shopify.com/s/files/1/0405/4636/9692/files/2020_KINDRED_Menu.pdf?v=1601336865");
+        } catch (MalformedURLException e) {
             e.printStackTrace();
-            return;
         }
 
         assert kindredMenuURL != null;
