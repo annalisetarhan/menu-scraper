@@ -81,22 +81,12 @@ public class MenuScraper {
      */
 
     private static void saveMillenniumMenu(String fileString) {
-        String fileName = "MillenniumRaw.txt";
         Document doc;
 
         try {
             doc = Jsoup.connect(millenniumMenu).get();
         } catch (IOException e) {
             System.out.println("Millennium's menu could not be reached.");
-            e.printStackTrace();
-            return;
-        }
-
-        try {
-            BufferedWriter writer = new BufferedWriter(new FileWriter(fileString + "//" + fileName));
-            writer.write(doc.body().toString());
-        } catch (IOException e) {
-            System.out.println("Millennium's raw menu data could not be written.");
             e.printStackTrace();
             return;
         }
@@ -197,7 +187,7 @@ public class MenuScraper {
                 doc.outputSettings(settings);
 
                 String docBody = doc.body().toString();
-                int startIndex = docBody.indexOf("<h2 style=");
+                int startIndex = docBody.indexOf("<h3 style=\"font-family: 'Piedra'");
                 int endIndex = docBody.length();
 
                 if (docBody.contains("\t<div id=\"top_button\">\n")) {
@@ -294,61 +284,19 @@ public class MenuScraper {
      */
 
     private static void saveBiNeviDeliMenu(String fileString) {
-        String fileName = "BiNeviDeli.jpg";
+        String fileName = "BiNeviDeli.pdf";
+        URL biNeviDeliMenuURL;
         try {
             Document doc = Jsoup.connect(biNeviDeliPage).get();
-            Elements menuImages = doc.select(".wpb_single_image img");
-
-            // Gets each menu jpg's info
-
-            String[] imageLinks = new String[6];
-            URL[] imageUrls = new URL[6];
-            BufferedImage[] images = new BufferedImage[6];
-            int[] heights = new int[6];
-            int[] widths = new int[6];
-
-            for (int i = 0; i < 6; i++) {
-                imageLinks[i] = menuImages.get(i).attr("src");
-                imageUrls[i] = new URL(imageLinks[i]);
-                images[i] = ImageIO.read(imageUrls[i]);
-                heights[i] = images[i].getHeight() + 50; // +50 adds a buffer between each menu
-                widths[i] = images[i].getWidth();
-            }
-
-            // Calculates dimensions of final image
-
-            int totalHeight = 0;
-            int maxWidth = 0;
-            for (int i = 0; i < 6; i++) {
-                totalHeight += heights[i];
-                if (widths[i] > maxWidth) {
-                    maxWidth = widths[i];
-                }
-            }
-
-            // Creates new image and sets background color to white
-
-            BufferedImage concatenatedMenu =
-                    new BufferedImage(maxWidth, totalHeight, BufferedImage.TYPE_INT_RGB);
-            Graphics2D graphics = concatenatedMenu.createGraphics();
-            graphics.setColor(Color.WHITE);
-            graphics.fillRect(0, 0, maxWidth, totalHeight);
-
-            // Draws each part of the menu to the final image
-
-            int heightDrawnSoFar = 0;
-            for (int i = 0; i < 6; i++) {
-                boolean imageDrawn = graphics.drawImage(images[i], 0, heightDrawnSoFar, null);
-                heightDrawnSoFar += heights[i];
-                assert (imageDrawn);
-            }
-            File finalMenu = new File(fileString + "//" + fileName);
-            boolean finalMenuDrawing = ImageIO.write(concatenatedMenu, "jpeg", finalMenu);
-            assert (finalMenuDrawing);
-        } catch (Exception e) {
-            System.out.println("Couldn't handle Bi Nevi's menu. Lame.");
+            Elements pdfLinks = doc.select("a[href$='.pdf']");
+            assert(pdfLinks.size() == 1);
+            biNeviDeliMenuURL = new URL(pdfLinks.get(0).attr("abs:href"));
+        } catch (IOException e) {
+            System.out.println("Choked on BiNevi :(");
             e.printStackTrace();
+            return;
         }
+        pdfMenuHelper(biNeviDeliMenuURL, fileString, fileName);
     }
 
     /*
