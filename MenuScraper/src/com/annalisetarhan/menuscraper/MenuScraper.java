@@ -7,7 +7,6 @@ import org.jsoup.safety.Whitelist;
 import org.jsoup.select.Elements;
 
 import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -67,8 +66,10 @@ public class MenuScraper {
         System.out.println("Fetching Native Foods' menu...");
         saveNativeFoodsMenu(fileString);
 
+        /* Veggie Grill doesn't cooperate anymore
         System.out.println("Fetching Veggie Grill's menu...");
         saveVeggieGrillMenu(fileString);
+         */
 
         System.out.println("Fetching Bi Nevi Deli's menu...");
         saveBiNeviDeliMenu(fileString);
@@ -284,19 +285,18 @@ public class MenuScraper {
      */
 
     private static void saveBiNeviDeliMenu(String fileString) {
-        String fileName = "BiNeviDeli.pdf";
-        URL biNeviDeliMenuURL;
+        String fileName = fileString + "//" + "BiNeviDeli.png";
         try {
             Document doc = Jsoup.connect(biNeviDeliPage).get();
-            Elements pdfLinks = doc.select("a[href$='.pdf']");
-            assert(pdfLinks.size() == 1);
-            biNeviDeliMenuURL = new URL(pdfLinks.get(0).attr("abs:href"));
+            Element imageWrapper = doc.selectFirst("div.vc_single_image-wrapper");
+            String menuUrl = imageWrapper.selectFirst("img[src$=.png]").attr("src");
+            BufferedImage image = ImageIO.read(new URL(menuUrl));
+            File file = new File(fileName);
+            ImageIO.write(image, "png", file);
         } catch (IOException e) {
             System.out.println("Choked on BiNevi :(");
             e.printStackTrace();
-            return;
         }
-        pdfMenuHelper(biNeviDeliMenuURL, fileString, fileName);
     }
 
     /*
