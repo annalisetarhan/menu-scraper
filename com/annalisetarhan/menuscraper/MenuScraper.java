@@ -3,11 +3,9 @@ package com.annalisetarhan.menuscraper;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.safety.Whitelist;
+import org.jsoup.safety.Safelist;
 import org.jsoup.select.Elements;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -26,8 +24,7 @@ public class MenuScraper {
     private static String millenniumMenu = "https://www.millenniumrestaurant.com/menu";
     private static String graciasMadreMenu = "https://www.up2datemenu.com/plain_menu?menu_id=";
     private static int[] graciasMadreIDs = {9, 14, 18, 19, 34};
-    private static String nativeFoodsPage = "https://www.nativefoods.com/our-menu";
-    private static String veggieGrillPage = "https://www.veggiegrill.com/assets/392/src/MenuPDF.pdf";
+    private static String nativeFoodsPage = "https://www.nativefoods.com/menu";
     private static String biNeviDeliPage = "https://binevideli.com/en/menus/";
 
     public static void main(String[] args) {
@@ -54,6 +51,7 @@ public class MenuScraper {
         }
 
         // Saves each restaurant's menu in the new directory
+
         System.out.println("Fetching Millennium's menu...");
         saveMillenniumMenu(fileString);
 
@@ -65,11 +63,6 @@ public class MenuScraper {
 
         System.out.println("Fetching Native Foods' menu...");
         saveNativeFoodsMenu(fileString);
-
-        /* Veggie Grill doesn't cooperate anymore
-        System.out.println("Fetching Veggie Grill's menu...");
-        saveVeggieGrillMenu(fileString);
-         */
 
         System.out.println("Fetching Bi Nevi Deli's menu...");
         saveBiNeviDeliMenu(fileString);
@@ -83,7 +76,7 @@ public class MenuScraper {
 
     private static void saveMillenniumMenu(String fileString) {
         Document doc;
-
+        
         try {
             doc = Jsoup.connect(millenniumMenu).get();
         } catch (IOException e) {
@@ -197,7 +190,7 @@ public class MenuScraper {
 
                 docBody = docBody.substring(startIndex, endIndex);
 
-                String menuText = Jsoup.clean(docBody, graciasMadreURL, Whitelist.none(), settings);
+                String menuText = Jsoup.clean(docBody, graciasMadreURL, Safelist.none(), settings);
                 writer.write(menuText);
             }
             writer.close();
@@ -231,71 +224,129 @@ public class MenuScraper {
      */
 
     private static void saveNativeFoodsMenu(String fileString) {
-        String fileName = "NativeFoods.pdf";
-        URL nativeFoodsMenuURL = null;
+        Document doc;
 
         try {
-            Document doc = Jsoup.connect(nativeFoodsPage).get();
-            boolean chooseNext = false;
-            Elements links = doc.select("a[href]");
-
-            // Depends on actual menu link being second "menu" link on page.
-
-            for (Element link : links) {
-                if (link.text().equals("MENU")) {
-                    if (!chooseNext) {
-                        chooseNext = true;
-                    } else {
-                        nativeFoodsMenuURL = new URL(link.attr("abs:href"));
-                        break;
-                    }
-
-                }
-            }
+            doc = Jsoup.connect(nativeFoodsPage).get();
         } catch (IOException e) {
             System.out.println("Oops. Couldn't find Native Foods' menu.");
             e.printStackTrace();
             return;
         }
-        assert nativeFoodsMenuURL != null;
-        pdfMenuHelper(nativeFoodsMenuURL, fileString, fileName);
+        
+        cleanNativeFoods(doc, fileString);
     }
 
-    /*
-     * Accesses Veggie Grill's menu and saves as a pdf
-     */
+    private static void cleanNativeFoods(Document doc, String fileString) {
+        String fileName = fileString + "//" + "NativeFoods.txt";
 
-    private static void saveVeggieGrillMenu(String fileString) {
-        String fileName = "VeggieGrill.pdf";
-        URL veggieGrillMenuURL;
+        ArrayList<String> relevantClasses = new ArrayList<>();
+        relevantClasses.add("menu-section");
+        relevantClasses.add("name");
+        relevantClasses.add("description");
 
         try {
-            veggieGrillMenuURL = new URL(veggieGrillPage);
-        } catch (MalformedURLException e) {
-            System.out.println("Problem with Veggie Grill's URL");
+            BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
+            
+            Elements allElements = doc.getAllElements();
+
+            for (Element e : allElements
+                 ) {
+                String className = e.className();
+                if (relevantClasses.contains(className)) {
+                    if (className.equals("menu-section")) {
+                        writer.newLine();
+                        writer.newLine();
+                        writer.write(e.id());
+                        writer.newLine();
+                        writer.newLine();
+                    } else if (className.equals("name")){
+                        writer.write(e.ownText());
+                        writer.newLine();
+                    } else {
+                        writer.write(e.ownText());
+                        writer.newLine();
+                        writer.newLine();
+                    }
+                }
+            }
+            writer.close();
+
+        } catch (IOException e) {
             e.printStackTrace();
-            return;
         }
 
-        pdfMenuHelper(veggieGrillMenuURL, fileString, fileName);
     }
 
     /*
-     * Accesses Bi Nevi Deli's menu and concatenates jpgs
+     * Accesses Bi Nevi Deli's menu and ...
+     *
+     * Depends on relevant menu sections beginning with "ALL DAY BREAKFAST"
+     * and ending with "KIDS MENU"
      */
 
+
     private static void saveBiNeviDeliMenu(String fileString) {
-        String fileName = fileString + "//" + "BiNeviDeli.png";
+        String fileName = fileString + "//" + "BiNeviDeli.txt";
+
+        StringBuilder builder = new StringBuilder("Bi Nevi Deli Menu\n\n");
+
         try {
             Document doc = Jsoup.connect(biNeviDeliPage).get();
-            Element imageWrapper = doc.selectFirst("div.vc_single_image-wrapper");
-            String menuUrl = imageWrapper.selectFirst("img[src$=.png]").attr("src");
-            BufferedImage image = ImageIO.read(new URL(menuUrl));
-            File file = new File(fileName);
-            ImageIO.write(image, "png", file);
+
+            /*
+            Elements sections = doc.select(".vc_row.row-container");
+            for (Element section : sections) {
+                System.out.println(section);//.nextElementSibling());
+                System.out.println();
+            }
+             */
+
+            // Find menu sections... but why?
+            /*
+            Elements spanTexts = doc.select("span");
+            boolean foundBreakfast = false;
+            for (Element span : spanTexts) {
+                if (!foundBreakfast) {
+                    if (span.text().equals("ALL DAY BREAKFAST")) {
+                        foundBreakfast = true;
+                    } else {
+                        continue;
+                    }
+                }
+                System.out.println(span.text());
+                if (span.text().equals("KIDS MENU")) {
+                    break;
+                }
+            }
+             */
+
+            // Find menu items - title and description
+            Elements menuItemTitles = doc.select(".t-entry-title.h3");
+            for (Element itemTitle : menuItemTitles) {
+                builder.append(itemTitle.text());
+                builder.append("\n");
+                Element moreInfo = itemTitle.nextElementSibling();
+                while(moreInfo != null) {
+                    builder.append(moreInfo.text());
+                    moreInfo = moreInfo.nextElementSibling();
+                }
+                builder.append("\n\n");
+            }
+
         } catch (IOException e) {
             System.out.println("Choked on BiNevi :(");
             e.printStackTrace();
+        }
+
+        // Write out menu string to file
+        try {
+            BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
+            writer.append(builder);
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.out.println("Choked writing BiNevi :(");
         }
     }
 
